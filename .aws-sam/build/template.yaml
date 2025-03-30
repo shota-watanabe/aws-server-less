@@ -19,5 +19,31 @@ Resources:
           - logs:PutLogEvents
           Resource:
           - arn:aws:logs:*:*:*
+      Events:
+        MyApiEvent:
+          Type: Api
+          Properties:
+            Path: /task/{taskId}
+            Method: POST
+            RestApiId:
+              Ref: MyRestApi
+      Tags:
+        project: ApiTesting
     Metadata:
       SamResourceId: MyFunction
+  MyRestApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: TestRestApi
+      StageName: dev
+      Cors:
+        AllowMethods: '''GET,POST,OPTIONS'''
+        AllowHeaders: '''Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'''
+        AllowOrigin: '''*'''
+      Tags:
+        project: ApiTesting
+Outputs:
+  ApiEndpoint:
+    Description: API Gateway Base URL
+    Value:
+      Fn::Sub: https://${MyRestApi}.execute-api.${AWS::Region}.amazonaws.com/dev
