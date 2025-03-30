@@ -1,15 +1,16 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
 Resources:
+  # Lambda関数を定義
   MyFunction:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: TestLambdaFunctionSAM
       Handler: app.lambda_handler
       Runtime: python3.12
-      CodeUri: ./hello # Lambda関数のコードが格納されているディレクトリを指定
-      MemorySize: 128  # Lambda関数に割り当てるメモリサイズを指定（単位: MB）
-      Timeout: 3       # Lambda関数の実行タイムアウトを指定（単位: 秒）
+      CodeUri: ./src/sample
+      MemorySize: 128
+      Timeout: 3
       Policies:
         - Statement:
             - Effect: Allow
@@ -19,3 +20,28 @@ Resources:
                 - logs:PutLogEvents
               Resource:
                 - "arn:aws:logs:*:*:*"
+      Events: # API Gatewayのトリガー設定
+        MyApiEvent:
+          Type: Api
+          Properties:
+            Path: /task/{taskId}
+            Method: POST
+            RestApiId: !Ref MyRestApi
+      Tags:
+        project: ApiTesting
+  # API Gateway定義
+  MyRestApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: TestRestApi
+      StageName: dev
+      Cors: # CORSの設定も可能
+        AllowMethods: "'GET,POST,OPTIONS'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        AllowOrigin: "'*'"
+      Tags:
+        project: ApiTesting
+Outputs:
+  ApiEndpoint:
+    Description: "API Gateway Base URL"
+    Value: !Sub "https://${MyRestApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
