@@ -1,0 +1,21 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Resources:
+  MyFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: TestLambdaFunctionSAM
+      Handler: app.lambda_handler
+      Runtime: python3.12
+      CodeUri: ./hello # Lambda関数のコードが格納されているディレクトリを指定
+      MemorySize: 128  # Lambda関数に割り当てるメモリサイズを指定（単位: MB）
+      Timeout: 3       # Lambda関数の実行タイムアウトを指定（単位: 秒）
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource:
+                - "arn:aws:logs:*:*:*"

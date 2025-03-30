@@ -1,0 +1,23 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Resources:
+  MyFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: TestLambdaFunctionSAM
+      Handler: app.lambda_handler
+      Runtime: python3.12
+      CodeUri: MyFunction
+      MemorySize: 128
+      Timeout: 3
+      Policies:
+      - Statement:
+        - Effect: Allow
+          Action:
+          - logs:CreateLogGroup
+          - logs:CreateLogStream
+          - logs:PutLogEvents
+          Resource:
+          - arn:aws:logs:*:*:*
+    Metadata:
+      SamResourceId: MyFunction
