@@ -120,6 +120,26 @@ Resources:
             RestApiId: !Ref MyRestApi
       Tags:
         project: ApiTesting
+  AuthFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: AuthFunction
+      Handler: app.lambda_handler
+      Runtime: python3.12
+      CodeUri: ./src/auth
+      MemorySize: 128
+      Timeout: 3
+      Policies:
+        - !Ref TaskPolicies
+      Events: # API Gatewayのトリガー設定
+        MyApiEvent:
+          Type: Api
+          Properties:
+            Path: /auth
+            Method: POST
+            RestApiId: !Ref MyRestApi
+      Tags:
+        project: ApiTesting
   # API Gateway定義
   MyRestApi:
     Type: AWS::Serverless::Api
@@ -130,8 +150,46 @@ Resources:
         AllowMethods: "'GET,POST,OPTIONS'"
         AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
         AllowOrigin: "'*'"
+      Auth: # オーソライザーの設定
+        DefaultAuthorizer: CognitoAuthorizer
+        Authorizers:
+          CognitoAuthorizer:
+            UserPoolArn: !GetAtt MyCognitoUserPool.Arn
+            IdentitySource: method.request.header.Authorization
       Tags:
         project: ApiTesting
+  # Cognito定義
+  MyCognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: MyCognitoUserPool
+      AutoVerifiedAttributes:
+        - email # ユーザー登録時にメールアドレス宛に確認メールを自動送信
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 6
+      UsernameAttributes:
+        - email # ログインにメールアドレスを使うことを指定
+      Schema: # ユーザー属性の設定
+        - Name: email
+          AttributeDataType: String
+          Required: true
+  MyCognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: MyCognitoUserPoolClient
+      UserPoolId: !Ref MyCognitoUserPool
+      IdTokenValidity: 1440 # IDトークンの有効期限 (24時間)（デフォルトは1時間）
+      AccessTokenValidity: 1440 # アクセストークンの有効期限 (24時間)（デフォルトは1時間）
+      RefreshTokenValidity: 30 # リフレッシュトークンの有効期限 (30日)（デフォルトは30日）
+      TokenValidityUnits:
+        IdToken: minutes
+        AccessToken: minutes
+        RefreshToken: days
+      GenerateSecret: false # クライアントシークレットの生成を無効化
+      ExplicitAuthFlows: # クライアントで許可される認証フローを指定
+        - ADMIN_NO_SRP_AUTH # 管理者が認証情報を使用してログインを許可
+        - USER_PASSWORD_AUTH # ユーザー名とパスワードでの認証を許可
   # DynamoDBテーブル定義
   TasksTable:
     Type: AWS::DynamoDB::Table
@@ -147,7 +205,18 @@ Resources:
       Tags:
         - Key: project
           Value: ApiTesting
+
 Outputs:
   ApiEndpoint:
     Description: "API Gateway Base URL"
     Value: !Sub "https://${MyRestApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
+  CognitoUserPoolId:
+    Description: "Cognito User Pool ID"
+    Value: !Ref MyCognitoUserPool
+    Export:
+      Name: MyCognitoUserPoolId
+  CognitoUserPoolClientId:
+    Description: "Cognito User Pool Client ID"
+    Value: !Ref MyCognitoUserPoolClient
+    Export:
+      Name: MyCognitoUserPoolClientId
