@@ -1,17 +1,12 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Resources:
-  MyFunction:
-    Type: AWS::Serverless::Function
+  TaskPolicies:
+    Type: AWS::IAM::ManagedPolicy
     Properties:
-      FunctionName: TestLambdaFunctionSAM
-      Handler: app.lambda_handler
-      Runtime: python3.12
-      CodeUri: MyFunction
-      MemorySize: 128
-      Timeout: 3
-      Policies:
-      - Statement:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
         - Effect: Allow
           Action:
           - logs:CreateLogGroup
@@ -19,18 +14,130 @@ Resources:
           - logs:PutLogEvents
           Resource:
           - arn:aws:logs:*:*:*
+  CreateTaskFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: CreateTaskFunction
+      Handler: app.lambda_handler
+      Runtime: python3.12
+      CodeUri: CreateTaskFunction
+      MemorySize: 128
+      Timeout: 3
+      Policies:
+      - Ref: TaskPolicies
+      - Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:PutItem
+          Resource:
+          - Fn::GetAtt:
+            - TasksTable
+            - Arn
       Events:
         MyApiEvent:
           Type: Api
           Properties:
-            Path: /task/{taskId}
+            Path: /tasks
             Method: POST
             RestApiId:
               Ref: MyRestApi
       Tags:
         project: ApiTesting
     Metadata:
-      SamResourceId: MyFunction
+      SamResourceId: CreateTaskFunction
+  ListTasksFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: ListTasksFunction
+      Handler: app.lambda_handler
+      Runtime: python3.12
+      CodeUri: ListTasksFunction
+      MemorySize: 128
+      Timeout: 3
+      Policies:
+      - Ref: TaskPolicies
+      - Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:Scan
+          Resource:
+          - Fn::GetAtt:
+            - TasksTable
+            - Arn
+      Events:
+        MyApiEvent:
+          Type: Api
+          Properties:
+            Path: /tasks
+            Method: GET
+            RestApiId:
+              Ref: MyRestApi
+      Tags:
+        project: ApiTesting
+    Metadata:
+      SamResourceId: ListTasksFunction
+  UpdateTaskFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: UpdateTaskFunction
+      Handler: app.lambda_handler
+      Runtime: python3.12
+      CodeUri: UpdateTaskFunction
+      MemorySize: 128
+      Timeout: 3
+      Policies:
+      - Ref: TaskPolicies
+      - Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:UpdateItem
+          Resource:
+          - Fn::GetAtt:
+            - TasksTable
+            - Arn
+      Events:
+        MyApiEvent:
+          Type: Api
+          Properties:
+            Path: /tasks/{taskId}
+            Method: PATCH
+            RestApiId:
+              Ref: MyRestApi
+      Tags:
+        project: ApiTesting
+    Metadata:
+      SamResourceId: UpdateTaskFunction
+  DeleteTaskFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: DeleteTaskFunction
+      Handler: app.lambda_handler
+      Runtime: python3.12
+      CodeUri: DeleteTaskFunction
+      MemorySize: 128
+      Timeout: 3
+      Policies:
+      - Ref: TaskPolicies
+      - Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:DeleteItem
+          Resource:
+          - Fn::GetAtt:
+            - TasksTable
+            - Arn
+      Events:
+        MyApiEvent:
+          Type: Api
+          Properties:
+            Path: /tasks/{taskId}
+            Method: DELETE
+            RestApiId:
+              Ref: MyRestApi
+      Tags:
+        project: ApiTesting
+    Metadata:
+      SamResourceId: DeleteTaskFunction
   MyRestApi:
     Type: AWS::Serverless::Api
     Properties:
@@ -42,6 +149,20 @@ Resources:
         AllowOrigin: '''*'''
       Tags:
         project: ApiTesting
+  TasksTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: TasksTable
+      AttributeDefinitions:
+      - AttributeName: taskId
+        AttributeType: S
+      KeySchema:
+      - AttributeName: taskId
+        KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+      Tags:
+      - Key: project
+        Value: ApiTesting
 Outputs:
   ApiEndpoint:
     Description: API Gateway Base URL
