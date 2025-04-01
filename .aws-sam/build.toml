@@ -36,4 +36,13 @@ manifest_hash = ""
 packagetype = "Zip"
 functions = ["DeleteTaskFunction"]
 
+[function_build_definitions.60b507e5-66b9-4a82-9f53-ca4d4aa91f1e]
+codeuri = "/Users/watasho/study/aws-cli/aws-api/src/auth"
+runtime = "python3.12"
+architecture = "x86_64"
+handler = "app.lambda_handler"
+manifest_hash = ""
+packagetype = "Zip"
+functions = ["AuthFunction"]
+
 [layer_build_definitions]

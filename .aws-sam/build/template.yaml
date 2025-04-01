@@ -138,6 +138,29 @@ Resources:
         project: ApiTesting
     Metadata:
       SamResourceId: DeleteTaskFunction
+  AuthFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: AuthFunction
+      Handler: app.lambda_handler
+      Runtime: python3.12
+      CodeUri: AuthFunction
+      MemorySize: 128
+      Timeout: 3
+      Policies:
+      - Ref: TaskPolicies
+      Events:
+        MyApiEvent:
+          Type: Api
+          Properties:
+            Path: /auth
+            Method: POST
+            RestApiId:
+              Ref: MyRestApi
+      Tags:
+        project: ApiTesting
+    Metadata:
+      SamResourceId: AuthFunction
   MyRestApi:
     Type: AWS::Serverless::Api
     Properties:
@@ -147,8 +170,49 @@ Resources:
         AllowMethods: '''GET,POST,OPTIONS'''
         AllowHeaders: '''Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'''
         AllowOrigin: '''*'''
+      Auth:
+        DefaultAuthorizer: CognitoAuthorizer
+        Authorizers:
+          CognitoAuthorizer:
+            UserPoolArn:
+              Fn::GetAtt:
+              - MyCognitoUserPool
+              - Arn
+            IdentitySource: method.request.header.Authorization
       Tags:
         project: ApiTesting
+  MyCognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: MyCognitoUserPool
+      AutoVerifiedAttributes:
+      - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 6
+      UsernameAttributes:
+      - email
+      Schema:
+      - Name: email
+        AttributeDataType: String
+        Required: true
+  MyCognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: MyCognitoUserPoolClient
+      UserPoolId:
+        Ref: MyCognitoUserPool
+      IdTokenValidity: 1440
+      AccessTokenValidity: 1440
+      RefreshTokenValidity: 30
+      TokenValidityUnits:
+        IdToken: minutes
+        AccessToken: minutes
+        RefreshToken: days
+      GenerateSecret: false
+      ExplicitAuthFlows:
+      - ADMIN_NO_SRP_AUTH
+      - USER_PASSWORD_AUTH
   TasksTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -168,3 +232,15 @@ Outputs:
     Description: API Gateway Base URL
     Value:
       Fn::Sub: https://${MyRestApi}.execute-api.${AWS::Region}.amazonaws.com/dev
+  CognitoUserPoolId:
+    Description: Cognito User Pool ID
+    Value:
+      Ref: MyCognitoUserPool
+    Export:
+      Name: MyCognitoUserPoolId
+  CognitoUserPoolClientId:
+    Description: Cognito User Pool Client ID
+    Value:
+      Ref: MyCognitoUserPoolClient
+    Export:
+      Name: MyCognitoUserPoolClientId
