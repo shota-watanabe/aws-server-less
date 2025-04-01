@@ -1,31 +1,122 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
 Resources:
+  # Lambda関数で利用する共通ポリシー
+  TaskPolicies:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource:
+              - "arn:aws:logs:*:*:*"
   # Lambda関数を定義
-  MyFunction:
+  CreateTaskFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: TestLambdaFunctionSAM
+      FunctionName: CreateTaskFunction
       Handler: app.lambda_handler
       Runtime: python3.12
-      CodeUri: ./src/sample
+      CodeUri: ./src/create_task
       MemorySize: 128
       Timeout: 3
       Policies:
+        - !Ref TaskPolicies
         - Statement:
             - Effect: Allow
               Action:
-                - logs:CreateLogGroup
-                - logs:CreateLogStream
-                - logs:PutLogEvents
+                - dynamodb:PutItem
               Resource:
-                - "arn:aws:logs:*:*:*"
+                - !GetAtt TasksTable.Arn
       Events: # API Gatewayのトリガー設定
         MyApiEvent:
           Type: Api
           Properties:
-            Path: /task/{taskId}
+            Path: /tasks
             Method: POST
+            RestApiId: !Ref MyRestApi
+      Tags:
+        project: ApiTesting
+  ListTasksFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: ListTasksFunction
+      Handler: app.lambda_handler
+      Runtime: python3.12
+      CodeUri: ./src/list_tasks
+      MemorySize: 128
+      Timeout: 3
+      Policies:
+        - !Ref TaskPolicies
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:Scan
+              Resource:
+                - !GetAtt TasksTable.Arn
+      Events: # API Gatewayのトリガー設定
+        MyApiEvent:
+          Type: Api
+          Properties:
+            Path: /tasks
+            Method: GET
+            RestApiId: !Ref MyRestApi
+      Tags:
+        project: ApiTesting
+  UpdateTaskFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: UpdateTaskFunction
+      Handler: app.lambda_handler
+      Runtime: python3.12
+      CodeUri: ./src/update_task
+      MemorySize: 128
+      Timeout: 3
+      Policies:
+        - !Ref TaskPolicies
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:UpdateItem
+              Resource:
+                - !GetAtt TasksTable.Arn
+      Events: # API Gatewayのトリガー設定
+        MyApiEvent:
+          Type: Api
+          Properties:
+            Path: /tasks/{taskId}
+            Method: PATCH
+            RestApiId: !Ref MyRestApi
+      Tags:
+        project: ApiTesting
+  DeleteTaskFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: DeleteTaskFunction
+      Handler: app.lambda_handler
+      Runtime: python3.12
+      CodeUri: ./src/delete_task
+      MemorySize: 128
+      Timeout: 3
+      Policies:
+        - !Ref TaskPolicies
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:DeleteItem
+              Resource:
+                - !GetAtt TasksTable.Arn
+      Events: # API Gatewayのトリガー設定
+        MyApiEvent:
+          Type: Api
+          Properties:
+            Path: /tasks/{taskId}
+            Method: DELETE
             RestApiId: !Ref MyRestApi
       Tags:
         project: ApiTesting
@@ -41,6 +132,21 @@ Resources:
         AllowOrigin: "'*'"
       Tags:
         project: ApiTesting
+  # DynamoDBテーブル定義
+  TasksTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: TasksTable
+      AttributeDefinitions:
+        - AttributeName: taskId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: taskId
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+      Tags:
+        - Key: project
+          Value: ApiTesting
 Outputs:
   ApiEndpoint:
     Description: "API Gateway Base URL"
